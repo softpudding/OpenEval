@@ -72,6 +72,41 @@ A realistic harness for, say, a customer-support agent:
 
 Each dimension is scored independently. Aggregation (weighted average, all-must-pass, etc.) is a separate concern handled at analysis time.
 
+## Beyond correctness: operational metrics
+
+Task success is the headline, but it's not the only thing worth measuring. Most production agents have *operational* dimensions the team cares about too:
+
+- **Token usage** — input + output tokens per run. Drives cost and latency.
+- **Cost** — token usage × model pricing. The number finance asks about.
+- **Wall-clock latency** — total time from input to final result. Drives UX.
+- **Step count** — for multi-step agents, how many actions before terminating. Fewer is usually better; high counts hint at thrashing.
+- **Tool-call count / API calls** — separate from steps; a single step can issue multiple calls.
+- **Retries / errors recovered** — did the agent fail and try again? How often?
+- **Cache hit rate** — for agents with prompt caching, what fraction of tokens hit cache. Big cost lever.
+
+These are cheap to collect (instrument the agent harness once, get them for every case) and orthogonal to correctness. Whether to score them depends on whether the agent's designer cares — for a coding agent run nightly in CI, latency may not matter; for a real-time chat agent, P95 latency may be a release gate.
+
+**Treat them as dimensions like any other**, but with two differences:
+
+1. **They're usually instrumental, not pass/fail.** "Tokens used = 4200" isn't a pass/fail verdict on its own. Store the raw number; the bar (if any) is applied at analysis time. Optionally pair with a budget: `tokens_used < 5000` becomes a pass/fail dimension if the team has decided that bar.
+2. **They reward minimization, not maximization.** A perfect-score harness has high correctness *and low* cost/latency/steps. Make sure dashboards display them in the right direction so "improvement" reads correctly.
+
+A useful shape for the run record:
+
+```python
+{
+  "scores": { "task_success": {...}, "tone_appropriate": {...} },
+  "metrics": {
+    "input_tokens": 1820, "output_tokens": 410, "cost_usd": 0.0073,
+    "duration_s": 2.4, "steps": 6, "tool_calls": 9, "cache_hit_rate": 0.84
+  }
+}
+```
+
+Keep `scores` (correctness) and `metrics` (operational) separated in storage. They aggregate differently and answer different questions: scores answer "is the agent good?", metrics answer "is the agent efficient?".
+
+A failure mode to avoid: collapsing efficiency into correctness with a hand-tuned weight ("subtract 0.1 from score for every $0.01 over budget"). The weight is arbitrary and obscures both signals. Track them separately; let the team set explicit budgets when they're ready.
+
 ## Don't score in a single number at scoring time
 
 The number is for dashboards. The dimensions are for engineering. Keep them separate. Storing only the aggregate destroys Principle 2.

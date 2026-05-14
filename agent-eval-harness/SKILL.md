@@ -94,6 +94,8 @@ Prefer static when it fits. If you recommend LLM-judge, explain *rubrics* — mu
 
 Walk the user through what the rubric dimensions would be for their agent. E.g. for a support bot: `correct_action` (static), `policy_followed` (static), `tone_appropriate` (LLM-judge), `addresses_concern` (LLM-judge). See `references/scoring.md`.
 
+**Then ask about operational metrics.** Correctness isn't the only thing worth measuring. Most agents have efficiency dimensions the team may or may not care about: token usage, cost, wall-clock latency, step count, tool-call count, retries, cache hit rate. They're cheap to instrument and orthogonal to correctness. Ask the user explicitly which (if any) matter for their agent — e.g. "for a real-time chat agent, latency may be a release gate; for a nightly CI bot, it usually isn't". Whatever they pick goes into the run record under `metrics` (separate from `scores`), as raw numbers — optionally paired with a budget (`tokens_used < 5000`) if the team has a real bar. Do not bake operational metrics into the correctness score by hand-tuned weights — keep them separate signals.
+
 ### Decision 3: Result vs trace
 
 What you're explaining: "Two ways to look at a run. **Result-only** scores what the agent produced at the end. **Trace evaluation** also scores the steps it took to get there. Result-only is simpler and how most public benchmarks (SWE-bench, OSWorld) work. Trace eval costs more but tells you *where* a failure happened — useful if you said in Phase 1 that you want to know which step went wrong."
